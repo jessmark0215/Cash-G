@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cash-G · Sign In</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <nav class="nav">
+    <a href="index.html" class="brand">
+      <span class="mark"></span>
+      <span>Cash-G<small>Secure E-Wallet</small></span>
+    </a>
+    <div class="nav-links">
+      <a href="register.html">Create Account</a>
+    </div>
+  </nav>
+
+  <div class="auth-wrap">
+
+    <aside class="auth-side">
+      <div>
+        <div class="tagline">Welcome Back</div>
+        <h1>Sign in to your <em>Cash-G</em> wallet.</h1>
+      </div>
+      <div class="footer-note">
+        <strong style="color:var(--sky)">Note:</strong><br>
+        
+        ⚠️ After 3 failed attempts, your account locks for 30 seconds.
+      </div>
+    </aside>
+
+    <main class="auth-form">
+      <div class="auth-form-inner">
+        <h2>Sign In</h2>
+        <p class="subtitle">Good to see you again.</p>
+
+        <div id="alertBox"></div>
+        <div id="lockoutBox"></div>
+
+        <form id="loginForm">
+          <div class="field">
+            <label>Username</label>
+            <input type="text" id="username" placeholder="Your username" autocomplete="username" required>
+          </div>
+          <div class="field">
+            <label>Password</label>
+            <input type="password" id="password" placeholder="••••••••" autocomplete="current-password" required>
+          </div>
+
+          <!-- Visual attempt counter -->
+          <div class="attempts" id="attempts" title="Attempts remaining">
+            <span></span><span></span><span></span>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-block" id="submitBtn">
+            Continue
+          </button>
+
+          <p class="switch-link">
+            Don't have an account? <a href="register.html">Open one →</a>
+          </p>
+        </form>
+      </div>
+    </main>
+  </div>
+
+  <script type="module">
+    import {
+      db, ref, get, child,
+      hashPassword, sanitize, logActivity, lookupAccount
+    } from "./firebase-config.js";
+
+    const MAX_ATTEMPTS = 3;
+    const LOCKOUT_SEC  = 30;
+
+    const form        = document.getElementById('loginForm');
+    const alertBox    = document.getElementById('alertBox');
+    const lockoutBox  = document.getElementById('lockoutBox');
+    const submitBtn   = document.getElementById('submitBtn');
+    const attemptsEl  = document.getElementById('attempts');
+
+    function showAlert(type, msg){
+      alertBox.innerHTML = `<div class="alert alert-${type}">${msg}</div>`;
+    }
+    function clearAlert(){ alertBox.innerHTML = ''; }
+
+    function getAttempts(){
+      return parseInt(localStorage.getItem('cashg_attempts') || '0');
+    }
+    function setAttempts(n){
+      localStorage.setItem('cashg_attempts', n);
+      renderAttempts();
+    }
+    function renderAttempts(){
+      const used = getAttempts();
+      [...attemptsEl.children].forEach((el, i) =>
+        el.classList.toggle('used', i < used));
+    }
+
+    function lockoutUntil(){
+      return parseInt(localStorage.getItem('cashg_lockUntil') || '0');
+    }
+    function setLockout(seconds){
+      const until = Date.now() + seconds * 1000;
+      localStorage.setItem('cashg_lockUntil', until);
+      runLockoutTimer();
+    }
+    function clearLockout(){
+      localStorage.removeItem('cashg_lockUntil');
+      localStorage.removeItem('cashg_attempts');
+      lockoutBox.innerHTML = '';
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Continue';
+      renderAttempts();
+    }
+
+    function runLockoutTimer(){
+      const until = lockoutUntil();
+      if (until <= Date.now()){ clearLockout(); return; }
+      submitBtn.disabled = true;
+      const tick = () => {
+        const left = Math.ceil((until - Date.now())/1000);
+        if (left <= 0){
+          clearLockout();
+          showAlert('success', '✓ You may try again.');
+          return;
+        }
+        lockoutBox.innerHTML = `
+          <div class="lockout">
+            <div style="font-size:.75rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#fca5a5;margin-bottom:.4rem">
+              🔒 Account Locked
+            </div>
+            <div class="countdown">${left}s</div>
+            <div style="font-size:.85rem;margin-top:.4rem;opacity:.8">Too many failed attempts — please wait.</div>
+          </div>`;
+        setTimeout(tick, 250);
+      };
+      tick();
+    }
+
+    // initial render
+    renderAttempts();
+    if (lockoutUntil() > Date.now()) runLockoutTimer();
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      clearAlert();
+
+      if (lockoutUntil() > Date.now()){
+        return showAlert('warn', '⚠ Still locked out. Wait for the countdown to finish.');
+      }
+
+      const username = sanitize(document.getElementById('username').value).toLowerCase();
+      const password = document.getElementById('password').value;
+
+      if (!username || !password){
+        return showAlert('error', '⚠ Please fill in both fields.');
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Verifying…';
+
+      try {
+        const account = await lookupAccount(username);
+        const passwordHash = await hashPassword(password);
+
+        // Compare hashes (NOT plaintext)
+        if (account && account.data.passwordHash === passwordHash){
+          // ✅ Credentials match  →  stash temp identity, go to 2FA
+          sessionStorage.setItem('cashg_pending', JSON.stringify({
+            username,
+            securityQ: account.data.securityQ,
+            path:      account.path     // remember where this user lives
+          }));
+          await logActivity(username, 'login-stage1', 'success');
+          location.href = 'security-question.html';
+          return;
+        }
+
+        // ❌ Failed
+        const attempts = getAttempts() + 1;
+        setAttempts(attempts);
+        await logActivity(username || '(empty)', 'login-stage1', 'failed');
+
+        if (attempts >= MAX_ATTEMPTS){
+          setLockout(LOCKOUT_SEC);
+          showAlert('error', `⚠ Too many failed attempts. Locked for ${LOCKOUT_SEC}s.`);
+          await logActivity(username || '(empty)', 'lockout', 'triggered');
+        } else {
+          const left = MAX_ATTEMPTS - attempts;
+          showAlert('error', `⚠ Invalid credentials. ${left} attempt${left===1?'':'s'} remaining.`);
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Continue';
+        }
+      } catch (err){
+        console.error(err);
+        showAlert('error', '⚠ Connection error. Please try again.');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Continue';
+      }
+    });
+  </script>
+</body>
+</html>

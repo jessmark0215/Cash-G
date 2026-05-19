@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cash-G · My Wallet</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- 🔐 Session guard runs IMMEDIATELY (before render) -->
+<script>
+  const __s = JSON.parse(sessionStorage.getItem('cashg_session') || 'null');
+  if (!__s){ location.replace('login.html'); }
+  else if (__s.role !== 'user'){
+    // 🚫 Block manual URL access — admins go to admin dashboard
+    location.replace('admin-dashboard.html');
+  }
+</script>
+
+<div class="dash">
+
+  <!-- ===================  SIDEBAR  =================== -->
+  <aside class="sidebar">
+    <a href="index.html" class="brand" style="text-decoration:none">
+      <span class="mark">G</span>
+      <span>Cash-G</span>
+    </a>
+
+    <nav id="sidebarNav">
+      <button data-section="overview" class="active">◐ Overview</button>
+      <button data-section="send">→ Send Money</button>
+      <button data-section="topup">＋ Top-Up</button>
+      <button data-section="history">⌗ History</button>
+      <button data-section="profile">◇ My Profile</button>
+    </nav>
+
+    <div class="user-chip">
+      <div class="name" id="chipName">—</div>
+      <div style="color:#aaa;font-size:.72rem">@<span id="chipUser">—</span></div>
+      <span class="role">User</span>
+    </div>
+
+    <button class="btn btn-gold btn-sm" id="logoutBtn" style="margin-top:1rem">
+      ⎋ Sign Out
+    </button>
+  </aside>
+
+  <!-- ===================  MAIN  =================== -->
+  <main class="main">
+
+    <!-- === Overview === -->
+    <section class="section active" id="sec-overview">
+      <header>
+        <div>
+          <div class="crumb">My Wallet · Overview</div>
+          <h1 id="greet">Welcome back</h1>
+        </div>
+        <button class="btn btn-outline btn-sm" id="hideBalanceBtn">👁 Hide Balance</button>
+      </header>
+
+      <div class="wallet-card">
+        <div class="label">Available Balance</div>
+        <div class="balance">
+          <span class="currency">₱</span><span id="balVal">0.00</span>
+        </div>
+        <div class="meta">
+          <span>•••• •••• •••• <span id="acctTail">0000</span></span>
+          <span id="memberSince">Member · —</span>
+        </div>
+      </div>
+
+      <div class="stats">
+        <div class="stat">
+          <div class="lbl">Sent (lifetime)</div>
+          <div class="val small" id="statSent">₱ 0.00</div>
+        </div>
+        <div class="stat">
+          <div class="lbl">Received (lifetime)</div>
+          <div class="val small" id="statRecv">₱ 0.00</div>
+        </div>
+        <div class="stat">
+          <div class="lbl">Transactions</div>
+          <div class="val small" id="statCount">0</div>
+        </div>
+      </div>
+
+      <h3 style="margin: 2rem 0 1rem; font-size:1.3rem">Quick Actions</h3>
+      <div class="actions-row">
+        <button class="action-card" data-go="send">
+          <div class="ico">→</div>
+          <div class="ttl">Send Money</div>
+          <div class="sub">Transfer to another Cash-G user</div>
+        </button>
+        <button class="action-card" data-go="topup">
+          <div class="ico">＋</div>
+          <div class="ttl">Top-Up Wallet</div>
+          <div class="sub">Add funds (simulated)</div>
+        </button>
+        <button class="action-card" data-go="history">
+          <div class="ico">⌗</div>
+          <div class="ttl">Transaction Log</div>
+          <div class="sub">Review your activity</div>
+        </button>
+      </div>
+    </section>
+
+    <!-- === Send === -->
+    <section class="section" id="sec-send">
+      <header>
+        <div>
+          <div class="crumb">My Wallet · Send</div>
+          <h1>Send Money</h1>
+        </div>
+      </header>
+      <div style="max-width:480px">
+        <div id="sendAlert"></div>
+        <form id="sendForm">
+          <div class="field">
+            <label>Recipient Username</label>
+            <input type="text" id="recipient" placeholder="e.g. juandc" required>
+          </div>
+          <div class="field">
+            <label>Amount (₱)</label>
+            <input type="number" id="amount" min="1" step="0.01" placeholder="100.00" required>
+          </div>
+          <div class="field">
+            <label>Note (optional)</label>
+            <input type="text" id="note" placeholder="Lunch, rent, gift…">
+          </div>
+          <button type="submit" class="btn btn-primary">Send Now</button>
+        </form>
+      </div>
+    </section>
+
+    <!-- === Top-Up === -->
+    <section class="section" id="sec-topup">
+      <header>
+        <div>
+          <div class="crumb">My Wallet · Top-Up</div>
+          <h1>Top-Up Wallet</h1>
+        </div>
+      </header>
+      <div style="max-width:480px">
+        <div id="topupAlert"></div>
+        <form id="topupForm">
+          <div class="field">
+            <label>Amount to Add (₱)</label>
+            <input type="number" id="topupAmount" min="1" step="0.01" placeholder="500.00" required>
+            <div class="help">This is a simulated top-up for the demo.</div>
+          </div>
+          <button type="submit" class="btn btn-gold">Add to Wallet</button>
+        </form>
+      </div>
+    </section>
+
+    <!-- === History === -->
+    <section class="section" id="sec-history">
+      <header>
+        <div>
+          <div class="crumb">My Wallet · Transactions</div>
+          <h1>History</h1>
+        </div>
+      </header>
+      <div class="table-wrap">
+        <div class="thead"><h3>Your transactions</h3></div>
+        <table>
+          <thead>
+            <tr><th>Date</th><th>Type</th><th>Counterparty</th><th>Amount</th><th>Note</th></tr>
+          </thead>
+          <tbody id="historyBody">
+            <tr><td colspan="5" style="text-align:center;color:#888;padding:2rem">No transactions yet.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- === Profile === -->
+    <section class="section" id="sec-profile">
+      <header>
+        <div>
+          <div class="crumb">My Wallet · Profile</div>
+          <h1>My Profile</h1>
+        </div>
+      </header>
+      <div style="max-width:480px">
+        <div class="stat" style="margin-bottom:1rem">
+          <div class="lbl">Full Name</div>
+          <div class="val small" id="pName">—</div>
+        </div>
+        <div class="stat" style="margin-bottom:1rem">
+          <div class="lbl">Username</div>
+          <div class="val small" id="pUser">—</div>
+        </div>
+        <div class="stat" style="margin-bottom:1rem">
+          <div class="lbl">Email</div>
+          <div class="val small" id="pEmail">—</div>
+        </div>
+        <div class="stat" style="margin-bottom:1rem">
+          <div class="lbl">Role</div>
+          <div class="val small"><span class="badge badge-user">User</span></div>
+        </div>
+        <div class="stat" style="margin-bottom:1rem">
+          <div class="lbl">Password</div>
+          <div class="val small" style="font-family:monospace">••••••••</div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script type="module">
+  import {
+    db, ref, get, child, update, push,
+    sanitize, logActivity
+  } from "./firebase-config.js";
+
+  const session = JSON.parse(sessionStorage.getItem('cashg_session'));
+  let userData  = null;
+
+  // ====== INIT ======
+  document.getElementById('chipName').textContent  = session.fullName;
+  document.getElementById('chipUser').textContent  = session.username;
+  document.getElementById('greet').innerHTML       = `Welcome back, <span style="color:var(--blue)">${session.fullName.split(' ')[0]}</span> 👋`;
+  document.getElementById('acctTail').textContent  = session.username.slice(-4).toUpperCase().padStart(4,'0');
+
+  async function loadUser(){
+    const snap = await get(child(ref(db), `users/${session.username}`));
+    if (!snap.exists()){ alert('Account missing.'); doLogout(); return; }
+    userData = snap.val();
+
+    document.getElementById('balVal').textContent = Number(userData.balance || 0).toLocaleString('en-PH', {minimumFractionDigits:2, maximumFractionDigits:2});
+    document.getElementById('memberSince').textContent = 'Member · ' + new Date(userData.createdAt).getFullYear();
+
+    document.getElementById('pName').textContent  = userData.fullName;
+    document.getElementById('pUser').textContent  = '@' + userData.username;
+    document.getElementById('pEmail').textContent = userData.email;
+
+    await loadTransactions();
+  }
+
+  async function loadTransactions(){
+    const snap = await get(child(ref(db), 'transactions'));
+    const tbody = document.getElementById('historyBody');
+    let sent = 0, recv = 0, count = 0;
+    const rows = [];
+    if (snap.exists()){
+      Object.values(snap.val()).forEach(t => {
+        if (t.from === session.username || t.to === session.username){
+          rows.push(t);
+          if (t.from === session.username && t.type === 'transfer') sent += Number(t.amount);
+          if (t.to   === session.username && t.type === 'transfer') recv += Number(t.amount);
+          if (t.to   === session.username && t.type === 'topup')    recv += Number(t.amount);
+          count++;
+        }
+      });
+    }
+    rows.sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+    document.getElementById('statSent').textContent  = '₱ ' + sent.toLocaleString('en-PH',{minimumFractionDigits:2});
+    document.getElementById('statRecv').textContent  = '₱ ' + recv.toLocaleString('en-PH',{minimumFractionDigits:2});
+    document.getElementById('statCount').textContent = count;
+
+    if (rows.length === 0){
+      tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#888;padding:2rem">No transactions yet.</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = rows.map(t => {
+      const isOut = t.from === session.username && t.type === 'transfer';
+      const counter = t.type === 'topup' ? 'Self (top-up)'
+                    : (isOut ? '→ ' + t.to : '← ' + t.from);
+      const sign = (isOut ? '−' : '+');
+      const color = isOut ? 'var(--danger)' : 'var(--success)';
+      return `
+        <tr>
+          <td>${new Date(t.timestamp).toLocaleString('en-PH', {dateStyle:'medium', timeStyle:'short'})}</td>
+          <td><span class="badge ${t.type==='topup'?'badge-warn':(isOut?'badge-fail':'badge-success')}">${t.type}</span></td>
+          <td>${counter}</td>
+          <td style="color:${color};font-weight:600">${sign} ₱ ${Number(t.amount).toLocaleString('en-PH',{minimumFractionDigits:2})}</td>
+          <td style="color:#666">${t.note || '—'}</td>
+        </tr>`;
+    }).join('');
+  }
+
+  // ====== NAV ======
+  document.querySelectorAll('#sidebarNav button').forEach(btn => {
+    btn.onclick = () => switchSection(btn.dataset.section);
+  });
+  document.querySelectorAll('[data-go]').forEach(b => {
+    b.onclick = () => switchSection(b.dataset.go);
+  });
+  function switchSection(name){
+    document.querySelectorAll('#sidebarNav button').forEach(b =>
+      b.classList.toggle('active', b.dataset.section === name));
+    document.querySelectorAll('.section').forEach(s =>
+      s.classList.toggle('active', s.id === 'sec-' + name));
+  }
+
+  // ====== LOGOUT ======
+  async function doLogout(){
+    await logActivity(session.username, 'logout', 'success');
+    sessionStorage.clear();
+    location.replace('login.html');
+  }
+  document.getElementById('logoutBtn').onclick = doLogout;
+
+  // ====== HIDE BALANCE ======
+  let hidden = false;
+  document.getElementById('hideBalanceBtn').onclick = (e) => {
+    hidden = !hidden;
+    document.getElementById('balVal').textContent =
+      hidden ? '•••••' : Number(userData.balance || 0).toLocaleString('en-PH',{minimumFractionDigits:2});
+    e.target.textContent = hidden ? '👁 Show Balance' : '👁 Hide Balance';
+  };
+
+  // ====== SEND MONEY ======
+  document.getElementById('sendForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const alertEl = document.getElementById('sendAlert');
+    alertEl.innerHTML = '';
+
+    const recipient = sanitize(document.getElementById('recipient').value).toLowerCase();
+    const amount    = parseFloat(document.getElementById('amount').value);
+    const note      = sanitize(document.getElementById('note').value);
+
+    if (!recipient || !amount || amount <= 0){
+      alertEl.innerHTML = `<div class="alert alert-error">⚠ Recipient and positive amount required.</div>`;
+      return;
+    }
+    if (recipient === session.username){
+      alertEl.innerHTML = `<div class="alert alert-error">⚠ You can't send to yourself.</div>`;
+      return;
+    }
+    if (amount > Number(userData.balance)){
+      alertEl.innerHTML = `<div class="alert alert-error">⚠ Insufficient balance.</div>`;
+      return;
+    }
+
+    const rsnap = await get(child(ref(db), `users/${recipient}`));
+    if (!rsnap.exists()){
+      alertEl.innerHTML = `<div class="alert alert-error">⚠ Recipient not found.</div>`;
+      return;
+    }
+    const recipientData = rsnap.val();
+
+    // Atomic-ish update
+    await update(ref(db, `users/${session.username}`), { balance: Number(userData.balance) - amount });
+    await update(ref(db, `users/${recipient}`),       { balance: Number(recipientData.balance || 0) + amount });
+    await push(ref(db, 'transactions'), {
+      type: 'transfer', from: session.username, to: recipient,
+      amount, note, timestamp: new Date().toISOString()
+    });
+    await logActivity(session.username, `transfer ₱${amount} → ${recipient}`, 'success');
+
+    alertEl.innerHTML = `<div class="alert alert-success">✓ Sent ₱${amount.toLocaleString('en-PH',{minimumFractionDigits:2})} to ${recipient}.</div>`;
+    e.target.reset();
+    await loadUser();
+  });
+
+  // ====== TOP-UP ======
+  document.getElementById('topupForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const alertEl = document.getElementById('topupAlert');
+    alertEl.innerHTML = '';
+    const amount = parseFloat(document.getElementById('topupAmount').value);
+    if (!amount || amount <= 0){
+      alertEl.innerHTML = `<div class="alert alert-error">⚠ Enter a positive amount.</div>`;
+      return;
+    }
+    await update(ref(db, `users/${session.username}`), { balance: Number(userData.balance) + amount });
+    await push(ref(db, 'transactions'), {
+      type: 'topup', from: 'system', to: session.username,
+      amount, note: 'Wallet top-up', timestamp: new Date().toISOString()
+    });
+    await logActivity(session.username, `top-up ₱${amount}`, 'success');
+    alertEl.innerHTML = `<div class="alert alert-success">✓ Added ₱${amount.toLocaleString('en-PH',{minimumFractionDigits:2})}.</div>`;
+    e.target.reset();
+    await loadUser();
+  });
+
+  // ====== GO ======
+  loadUser();
+
+  // ====== Guard against back-button after logout ======
+  window.addEventListener('pageshow', (e) => {
+    if (e.persisted && !sessionStorage.getItem('cashg_session')){
+      location.replace('login.html');
+    }
+  });
+</script>
+</body>
+</html>

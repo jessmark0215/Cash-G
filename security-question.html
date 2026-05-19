@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cash-G · Security Check</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <nav class="nav">
+    <a href="index.html" class="brand">
+      <span class="mark"></span>
+      <span>Cash-G<small>Secure E-Wallet</small></span>
+    </a>
+    <div class="nav-links"></div>
+  </nav>
+
+  <div class="auth-wrap">
+
+    <aside class="auth-side">
+      <div>
+        <div class="tagline">Step 2 · Verify</div>
+        <h1>One more check, then you're <em>in.</em></h1>
+      </div>
+      <div class="footer-note">
+        🔐 Your answer is hashed and compared without ever appearing on the wire.
+        Hit this wrong too many times and the lockout begins again.
+      </div>
+    </aside>
+
+    <main class="auth-form">
+      <div class="auth-form-inner">
+        <h2>Security Check</h2>
+        <p class="subtitle" id="userSub">Verifying your identity…</p>
+
+        <div id="alertBox"></div>
+
+        <form id="sqForm">
+          <div class="field">
+            <label>Your Security Question</label>
+            <input type="text" id="question" readonly style="background:var(--cream);font-style:italic">
+          </div>
+          <div class="field">
+            <label>Your Answer</label>
+            <input type="text" id="answer" placeholder="Type your answer" autocomplete="off" required autofocus>
+            <div class="help">Case-insensitive · spaces matter</div>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-block" id="submitBtn">
+            Verify &amp; Continue
+          </button>
+
+          <p class="switch-link">
+            <a href="login.html">← Cancel and start over</a>
+          </p>
+        </form>
+      </div>
+    </main>
+  </div>
+
+  <script type="module">
+    import {
+      db, ref, get, child,
+      hashPassword, sanitize, logActivity
+    } from "./firebase-config.js";
+
+    const MAX_SQ_ATTEMPTS = 3;
+
+    const pending = JSON.parse(sessionStorage.getItem('cashg_pending') || 'null');
+    if (!pending){
+      alert('Session expired. Please sign in again.');
+      location.href = 'login.html';
+    }
+
+    document.getElementById('userSub').textContent = `Signed in as ${pending.username} — please verify.`;
+    document.getElementById('question').value = pending.securityQ;
+
+    const form     = document.getElementById('sqForm');
+    const alertBox = document.getElementById('alertBox');
+    const submitBtn= document.getElementById('submitBtn');
+
+    let sqAttempts = parseInt(sessionStorage.getItem('cashg_sq_attempts') || '0');
+
+    function showAlert(type, msg){
+      alertBox.innerHTML = `<div class="alert alert-${type}">${msg}</div>`;
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      alertBox.innerHTML = '';
+
+      const answer = sanitize(document.getElementById('answer').value).toLowerCase();
+      if (!answer) return showAlert('error', '⚠ Please type your answer.');
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Verifying…';
+
+      try {
+        const snap = await get(child(ref(db), pending.path));
+        if (!snap.exists()) throw new Error('user missing');
+        const user = snap.val();
+        const answerHash = await hashPassword(answer);
+
+        if (user.securityAhash === answerHash){
+          // ✅ All good — start session
+          await logActivity(pending.username, 'login-stage2', 'success');
+          sessionStorage.removeItem('cashg_pending');
+          sessionStorage.removeItem('cashg_sq_attempts');
+          localStorage.removeItem('cashg_attempts');
+          localStorage.removeItem('cashg_lockUntil');
+
+          // Persist session
+          sessionStorage.setItem('cashg_session', JSON.stringify({
+            username: user.username,
+            role:     user.role,
+            fullName: user.fullName,
+            loginTime: new Date().toISOString()
+          }));
+
+          // 🔐 Role-based redirect
+          if (user.role === 'admin'){
+            location.href = 'admin-dashboard.html';
+          } else {
+            location.href = 'user-dashboard.html';
+          }
+          return;
+        }
+
+        // ❌ Failed
+        sqAttempts++;
+        sessionStorage.setItem('cashg_sq_attempts', sqAttempts);
+        await logActivity(pending.username, 'login-stage2', 'failed');
+
+        if (sqAttempts >= MAX_SQ_ATTEMPTS){
+          await logActivity(pending.username, 'lockout-stage2', 'triggered');
+          sessionStorage.removeItem('cashg_pending');
+          sessionStorage.removeItem('cashg_sq_attempts');
+          localStorage.setItem('cashg_lockUntil', Date.now() + 30*1000);
+          alert('Too many wrong answers. Returning to sign-in (locked for 30s).');
+          location.href = 'login.html';
+          return;
+        }
+
+        const left = MAX_SQ_ATTEMPTS - sqAttempts;
+        showAlert('error', `⚠ Wrong answer. ${left} attempt${left===1?'':'s'} remaining.`);
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Verify & Continue';
+      } catch (err){
+        console.error(err);
+        showAlert('error', '⚠ Verification error. Please try again.');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Verify & Continue';
+      }
+    });
+  </script>
+</body>
+</html>

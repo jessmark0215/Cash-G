@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cash-G · Modern E-Wallet</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- ===================  NAVBAR  =================== -->
+  <nav class="nav">
+    <a href="index.html" class="brand">
+      <span class="mark"></span>
+      <span>
+        Cash-G
+        <small>Secure E-Wallet</small>
+      </span>
+    </a>
+    <div class="nav-links">
+      <a href="login.html">Sign In</a>
+      <a href="register.html" class="cta">Open Account</a>
+    </div>
+  </nav>
+
+  <!-- ===================  HERO  =================== -->
+  <section class="hero">
+    <div>
+      <div class="hero-tag">Send · Receive · Save</div>
+      <h1>Your money, <em>made easy</em>.</h1>
+      <p class="lead">
+        Cash-G is a simple, secure e-wallet for sending money,
+        topping up, and keeping track of every transaction.
+      </p>
+      <div class="hero-cta">
+        <a href="register.html" class="btn btn-primary">Open an Account</a>
+        <a href="login.html" class="btn btn-outline">Sign In</a>
+      </div>
+    </div>
+
+    <div class="hero-art">
+      <div class="hero-card c1">
+        <div class="lbl">Cash-G Balance</div>
+        <div class="bal">₱ 124,580.25</div>
+        <div class="num">•••• •••• •••• 0427</div>
+        <div class="ftr">
+          <span>J. DELA CRUZ</span>
+          <span>05 / 28</span>
+        </div>
+      </div>
+      <div class="hero-card c2">
+        <div class="lbl">Verified Member</div>
+        <div class="bal">Tier · Plus</div>
+        <div class="num">2FA · ENABLED</div>
+        <div class="ftr">
+          <span>Since 2026</span>
+          <span>★ ★ ★ ★ ★</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================  FEATURES  =================== 
+  <section class="features" id="features">
+    <h2>Built on <em>8</em> layers of security.</h2>
+    <div class="features-grid">
+      <div class="feature">
+        <div class="num">01</div>
+        <h3>Hashed Passwords</h3>
+        <p>SHA-256 hashing via the browser-native Web Crypto API. Plain text never touches the database.</p>
+      </div>
+      <div class="feature">
+        <div class="num">02</div>
+        <h3>Security Questions</h3>
+        <p>A second factor after every login — randomised per session and hashed at rest.</p>
+      </div>
+      <div class="feature">
+        <div class="num">03</div>
+        <h3>Lockout System</h3>
+        <p>Three failed attempts triggers a 30-second cool-down with a live countdown.</p>
+      </div>
+      <div class="feature">
+        <div class="num">04</div>
+        <h3>Role-Based Access</h3>
+        <p>Admins manage the system; users manage their wallet. The two never cross.</p>
+      </div>
+      <div class="feature" id="security">
+        <div class="num">05</div>
+        <h3>Input Validation</h3>
+        <p>Every field is sanitised and verified before it reaches the database.</p>
+      </div>
+      <div class="feature">
+        <div class="num">06</div>
+        <h3>Session Control</h3>
+        <p>Logged-in state lives in sessionStorage. Logout is immediate and total.</p>
+      </div>
+      <div class="feature">
+        <div class="num">07</div>
+        <h3>Activity Logs</h3>
+        <p>Every login, transfer, and admin action is time-stamped and visible to admins.</p>
+      </div>
+      <div class="feature">
+        <div class="num">08</div>
+        <h3>Data Discretion</h3>
+        <p>Passwords are masked, balances obscure-able, and sensitive UI hidden by default.</p>
+      </div>
+    </div>
+  </section> -->
+
+  <footer class="foot">
+    <div>© 2026 Cash-G · A student cybersecurity project</div>
+  </footer>
+
+  <!-- ===================  INIT  =================== -->
+  <script type="module">
+    import { seedDefaultAdmin } from "./firebase-config.js";
+    // Seed default admin once
+    seedDefaultAdmin().catch(err => console.warn("Seed skipped:", err));
+
+    // Reveal animations on scroll
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting){
+          e.target.style.opacity = 1;
+          e.target.style.transform = 'none';
+        }
+      });
+    }, { threshold: .1 });
+    document.querySelectorAll('.feature').forEach((el, i) => {
+      el.style.opacity = 0;
+      el.style.transform = 'translateY(20px)';
+      el.style.transition = `all .5s ease ${i*60}ms`;
+      io.observe(el);
+    });
+  </script>
+</body>
+</html>

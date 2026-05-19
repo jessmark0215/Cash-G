@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cash-G · Admin Console</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- 🔐 Hard guard: admin only -->
+<script>
+  const __s = JSON.parse(sessionStorage.getItem('cashg_session') || 'null');
+  if (!__s){ location.replace('login.html'); }
+  else if (__s.role !== 'admin'){
+    alert('Access denied · administrators only.');
+    location.replace('user-dashboard.html');
+  }
+</script>
+
+<div class="dash">
+
+  <!-- ===================  SIDEBAR  =================== -->
+  <aside class="sidebar">
+    <a href="index.html" class="brand" style="text-decoration:none">
+      <span class="mark">G</span>
+      <span>Cash-G</span>
+    </a>
+
+    <nav id="sidebarNav">
+      <button data-section="overview" class="active">◐ Overview</button>
+      <button data-section="users">⚇ Users</button>
+      <button data-section="admins">★ Admins</button>
+      <button data-section="add">＋ Add User</button>
+      <button data-section="logs">⌗ Activity Logs</button>
+      <button data-section="txn">↹ Transactions</button>
+    </nav>
+
+    <div class="user-chip">
+      <div class="name" id="chipName">—</div>
+      <div style="color:#aaa;font-size:.72rem">@<span id="chipUser">—</span></div>
+      <span class="role" style="background:rgba(200,162,91,.2)">Administrator</span>
+    </div>
+
+    <button class="btn btn-gold btn-sm" id="logoutBtn" style="margin-top:1rem">
+      ⎋ Sign Out
+    </button>
+  </aside>
+
+  <!-- ===================  MAIN  =================== -->
+  <main class="main">
+
+    <!-- === Overview === -->
+    <section class="section active" id="sec-overview">
+      <header>
+        <div>
+          <div class="crumb">Admin · Overview</div>
+          <h1>Console</h1>
+        </div>
+      </header>
+
+      <div class="stats">
+        <div class="stat">
+          <div class="lbl">Total Users</div>
+          <div class="val" id="kpiUsers">—</div>
+        </div>
+        <div class="stat">
+          <div class="lbl">Active Sessions</div>
+          <div class="val" id="kpiActive">—</div>
+        </div>
+        <div class="stat">
+          <div class="lbl">Total Logs</div>
+          <div class="val" id="kpiLogs">—</div>
+        </div>
+        <div class="stat">
+          <div class="lbl">Failed Attempts</div>
+          <div class="val" id="kpiFails" style="color:var(--danger)">—</div>
+        </div>
+      </div>
+
+      <h3 style="margin: 2rem 0 1rem; font-size:1.3rem">Recent Activity</h3>
+      <div class="table-wrap">
+        <div class="thead"><h3>Last 10 events</h3></div>
+        <table>
+          <thead><tr><th>When</th><th>Username</th><th>Action</th><th>Status</th></tr></thead>
+          <tbody id="recentLogsBody"><tr><td colspan="4" style="text-align:center;padding:1.5rem;color:#888">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- === Users === -->
+    <section class="section" id="sec-users">
+      <header>
+        <div>
+          <div class="crumb">Admin · Users</div>
+          <h1>All Users</h1>
+        </div>
+        <button class="btn btn-primary btn-sm" data-go="add">＋ New User</button>
+      </header>
+      <div class="table-wrap">
+        <div class="thead"><h3 id="usersCount">— accounts</h3></div>
+        <table>
+          <thead><tr><th>Username</th><th>Full Name</th><th>Email</th><th>Role</th><th>Balance</th><th>Joined</th><th></th></tr></thead>
+          <tbody id="usersBody"><tr><td colspan="7" style="text-align:center;padding:1.5rem;color:#888">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- === Admins === -->
+    <section class="section" id="sec-admins">
+      <header>
+        <div>
+          <div class="crumb">Admin · Administrators</div>
+          <h1>All Administrators</h1>
+        </div>
+        <button class="btn btn-primary btn-sm" data-go="add">＋ New Admin</button>
+      </header>
+      <div class="alert alert-info" style="margin-bottom:1rem">
+        🔒 Admin accounts are stored in a separate database path (<code>/admins</code>) and are <strong>hidden from regular users</strong>. Only administrators can see this list.
+      </div>
+      <div class="table-wrap">
+        <div class="thead"><h3 id="adminsCount">— admins</h3></div>
+        <table>
+          <thead><tr><th>Username</th><th>Full Name</th><th>Email</th><th>Created</th><th></th></tr></thead>
+          <tbody id="adminsBody"><tr><td colspan="5" style="text-align:center;padding:1.5rem;color:#888">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- === Add User === -->
+    <section class="section" id="sec-add">
+      <header>
+        <div>
+          <div class="crumb">Admin · Users</div>
+          <h1>Add User</h1>
+        </div>
+      </header>
+      <div style="max-width:480px">
+        <div id="addAlert"></div>
+        <form id="addForm">
+          <div class="field">
+            <label>Full Name</label>
+            <input type="text" id="addName" required>
+          </div>
+          <div class="field">
+            <label>Username</label>
+            <input type="text" id="addUser" required>
+            <div class="help">Letters, numbers, underscore · min. 3 chars</div>
+          </div>
+          <div class="field">
+            <label>Email</label>
+            <input type="email" id="addEmail" required>
+          </div>
+          <div class="field">
+            <label>Password</label>
+            <input type="password" id="addPass" required>
+            <div class="help">≥ 8 chars · uppercase · lowercase · number</div>
+          </div>
+          <div class="field">
+            <label>Security Question</label>
+            <select id="addSQ" required>
+              <option value="">— Choose —</option>
+              <option>What is your favorite color?</option>
+              <option>What is your pet's name?</option>
+              <option>What city were you born in?</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Answer</label>
+            <input type="text" id="addSA" required>
+          </div>
+          <div class="field">
+            <label>Role</label>
+            <select id="addRole" required>
+              <option value="user">User</option>
+              <option value="admin">Administrator</option>
+            </select>
+          </div>
+          <button type="submit" class="btn btn-primary">Create Account</button>
+        </form>
+      </div>
+    </section>
+
+    <!-- === Logs === -->
+    <section class="section" id="sec-logs">
+      <header>
+        <div>
+          <div class="crumb">Admin · Logs</div>
+          <h1>Activity Logs</h1>
+        </div>
+        <div style="display:flex;gap:.5rem">
+          <select id="logFilter" class="btn btn-outline btn-sm" style="padding:.5rem 1rem">
+            <option value="all">All actions</option>
+            <option value="success">Success only</option>
+            <option value="failed">Failed only</option>
+            <option value="login">Login events</option>
+          </select>
+        </div>
+      </header>
+      <div class="table-wrap">
+        <div class="thead"><h3 id="logsCount">— entries</h3></div>
+        <table>
+          <thead><tr><th>Time</th><th>Username</th><th>Action</th><th>Status</th></tr></thead>
+          <tbody id="logsBody"><tr><td colspan="4" style="text-align:center;padding:1.5rem;color:#888">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- === Transactions === -->
+    <section class="section" id="sec-txn">
+      <header>
+        <div>
+          <div class="crumb">Admin · Money</div>
+          <h1>All Transactions</h1>
+        </div>
+      </header>
+      <div class="table-wrap">
+        <div class="thead"><h3 id="txnCount">— transactions</h3></div>
+        <table>
+          <thead><tr><th>Time</th><th>Type</th><th>From</th><th>To</th><th>Amount</th><th>Note</th></tr></thead>
+          <tbody id="txnBody"><tr><td colspan="6" style="text-align:center;padding:1.5rem;color:#888">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- ===================  DELETE CONFIRM MODAL  =================== -->
+<div class="modal-bg" id="delModal">
+  <div class="modal">
+    <button class="close" id="delClose">×</button>
+    <h3>Delete user?</h3>
+    <p class="modal-sub">This permanently removes <strong id="delName">—</strong> and their wallet.</p>
+    <div style="display:flex;gap:.6rem;justify-content:flex-end">
+      <button class="btn btn-outline btn-sm" id="delCancel">Cancel</button>
+      <button class="btn btn-danger btn-sm" id="delConfirm">Yes, delete</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  import {
+    db, ref, get, child, set, update, remove, push, onValue,
+    hashPassword, validatePassword, sanitize, logActivity
+  } from "./firebase-config.js";
+
+  const session = JSON.parse(sessionStorage.getItem('cashg_session'));
+  document.getElementById('chipName').textContent = session.fullName;
+  document.getElementById('chipUser').textContent = session.username;
+
+  // ====== NAV ======
+  document.querySelectorAll('#sidebarNav button').forEach(btn => {
+    btn.onclick = () => switchSection(btn.dataset.section);
+  });
+  document.querySelectorAll('[data-go]').forEach(b => {
+    b.onclick = () => switchSection(b.dataset.go);
+  });
+  function switchSection(name){
+    document.querySelectorAll('#sidebarNav button').forEach(b =>
+      b.classList.toggle('active', b.dataset.section === name));
+    document.querySelectorAll('.section').forEach(s =>
+      s.classList.toggle('active', s.id === 'sec-' + name));
+  }
+
+  // ====== LOGOUT ======
+  document.getElementById('logoutBtn').onclick = async () => {
+    await logActivity(session.username, 'logout', 'success');
+    sessionStorage.clear();
+    location.replace('login.html');
+  };
+
+  // ====== REAL-TIME LISTENERS ======
+  let allLogs = [];
+  let allUsers = {};
+  let allAdmins = {};
+  let allTxn = [];
+
+  onValue(ref(db, 'users'), (snap) => {
+    allUsers = snap.val() || {};
+    renderUsers();
+    renderOverview();
+  });
+
+  onValue(ref(db, 'admins'), (snap) => {
+    allAdmins = snap.val() || {};
+    renderAdmins();
+    renderOverview();
+  });
+
+  onValue(ref(db, 'logs'), (snap) => {
+    const data = snap.val() || {};
+    allLogs = Object.entries(data).map(([k,v]) => ({id:k, ...v}))
+              .sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
+    renderLogs();
+    renderOverview();
+  });
+
+  onValue(ref(db, 'transactions'), (snap) => {
+    const data = snap.val() || {};
+    allTxn = Object.entries(data).map(([k,v]) => ({id:k, ...v}))
+              .sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
+    renderTxn();
+  });
+
+  // ====== RENDER OVERVIEW ======
+  function renderOverview(){
+    const userCount  = Object.keys(allUsers).length;
+    const adminCount = Object.keys(allAdmins).length;
+    const failCount  = allLogs.filter(l => l.status === 'failed').length;
+    document.getElementById('kpiUsers').textContent = userCount + adminCount;
+    document.getElementById('kpiLogs').textContent  = allLogs.length;
+    document.getElementById('kpiFails').textContent = failCount;
+    // approximate active sessions = login-stage2 success in last 30 min
+    const cutoff = Date.now() - 30 * 60 * 1000;
+    const active = new Set(allLogs
+      .filter(l => l.action === 'login-stage2' && l.status === 'success' && new Date(l.timestamp).getTime() > cutoff)
+      .map(l => l.username)).size;
+    document.getElementById('kpiActive').textContent = active;
+
+    // recent table
+    const tbody = document.getElementById('recentLogsBody');
+    if (allLogs.length === 0){
+      tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#888;padding:1.5rem">No activity yet.</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = allLogs.slice(0, 10).map(l => `
+      <tr>
+        <td>${new Date(l.timestamp).toLocaleString('en-PH',{dateStyle:'short',timeStyle:'short'})}</td>
+        <td>${l.username}</td>
+        <td>${l.action}</td>
+        <td><span class="badge ${l.status==='success'?'badge-success':(l.status==='failed'?'badge-fail':'badge-warn')}">${l.status}</span></td>
+      </tr>`).join('');
+  }
+
+  // ====== RENDER USERS ======
+  function renderUsers(){
+    const entries = Object.values(allUsers);
+    document.getElementById('usersCount').textContent = entries.length + ' account' + (entries.length===1?'':'s');
+    const tbody = document.getElementById('usersBody');
+    if (entries.length === 0){
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:1.5rem;color:#888">No users.</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = entries.map(u => `
+      <tr>
+        <td><strong>@${u.username}</strong></td>
+        <td>${u.fullName || '—'}</td>
+        <td>${u.email || '—'}</td>
+        <td><span class="badge ${u.role==='admin'?'badge-admin':'badge-user'}">${u.role}</span></td>
+        <td>₱ ${Number(u.balance||0).toLocaleString('en-PH',{minimumFractionDigits:2})}</td>
+        <td>${u.createdAt ? new Date(u.createdAt).toLocaleDateString('en-PH') : '—'}</td>
+        <td>
+          ${u.username === session.username
+              ? '<span style="color:#aaa;font-size:.78rem">(you)</span>'
+              : `<button class="btn btn-danger btn-sm" data-del="${u.username}" data-name="${u.fullName||u.username}">Delete</button>`}
+        </td>
+      </tr>`).join('');
+
+    // wire deletes
+    tbody.querySelectorAll('[data-del]').forEach(btn => {
+      btn.onclick = () => openDelete(btn.dataset.del, btn.dataset.name, 'users');
+    });
+  }
+
+  // ====== RENDER ADMINS ======
+  function renderAdmins(){
+    const entries = Object.values(allAdmins);
+    document.getElementById('adminsCount').textContent = entries.length + ' admin' + (entries.length===1?'':'s');
+    const tbody = document.getElementById('adminsBody');
+    if (entries.length === 0){
+      tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:1.5rem;color:#888">No admins.</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = entries.map(a => `
+      <tr>
+        <td><strong>@${a.username}</strong> <span class="badge badge-admin">Admin</span></td>
+        <td>${a.fullName || '—'}</td>
+        <td>${a.email || '—'}</td>
+        <td>${a.createdAt ? new Date(a.createdAt).toLocaleDateString('en-PH') : '—'}</td>
+        <td>
+          ${a.username === session.username
+              ? '<span style="color:#aaa;font-size:.78rem">(you)</span>'
+              : `<button class="btn btn-danger btn-sm" data-deladmin="${a.username}" data-name="${a.fullName||a.username}">Delete</button>`}
+        </td>
+      </tr>`).join('');
+
+    // wire admin deletes
+    tbody.querySelectorAll('[data-deladmin]').forEach(btn => {
+      btn.onclick = () => openDelete(btn.dataset.deladmin, btn.dataset.name, 'admins');
+    });
+  }
+
+  // ====== RENDER LOGS ======
+  document.getElementById('logFilter').addEventListener('change', renderLogs);
+  function renderLogs(){
+    const f = document.getElementById('logFilter').value;
+    let rows = allLogs;
+    if (f === 'success') rows = rows.filter(l => l.status === 'success');
+    if (f === 'failed')  rows = rows.filter(l => l.status === 'failed');
+    if (f === 'login')   rows = rows.filter(l => l.action && l.action.includes('login'));
+
+    document.getElementById('logsCount').textContent = rows.length + ' entries';
+    const tbody = document.getElementById('logsBody');
+    if (rows.length === 0){
+      tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:1.5rem;color:#888">No matching logs.</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = rows.map(l => `
+      <tr>
+        <td>${new Date(l.timestamp).toLocaleString('en-PH',{dateStyle:'medium',timeStyle:'short'})}</td>
+        <td>${l.username}</td>
+        <td>${l.action}</td>
+        <td><span class="badge ${l.status==='success'?'badge-success':(l.status==='failed'?'badge-fail':'badge-warn')}">${l.status}</span></td>
+      </tr>`).join('');
+  }
+
+  // ====== RENDER TXN ======
+  function renderTxn(){
+    document.getElementById('txnCount').textContent = allTxn.length + ' transaction' + (allTxn.length===1?'':'s');
+    const tbody = document.getElementById('txnBody');
+    if (allTxn.length === 0){
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:1.5rem;color:#888">No transactions yet.</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = allTxn.map(t => `
+      <tr>
+        <td>${new Date(t.timestamp).toLocaleString('en-PH',{dateStyle:'medium',timeStyle:'short'})}</td>
+        <td><span class="badge ${t.type==='topup'?'badge-warn':'badge-success'}">${t.type}</span></td>
+        <td>${t.from}</td>
+        <td>${t.to}</td>
+        <td><strong>₱ ${Number(t.amount).toLocaleString('en-PH',{minimumFractionDigits:2})}</strong></td>
+        <td style="color:#666">${t.note || '—'}</td>
+      </tr>`).join('');
+  }
+
+  // ====== ADD USER ======
+  document.getElementById('addForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const alertEl = document.getElementById('addAlert');
+    alertEl.innerHTML = '';
+
+    const fullName = sanitize(document.getElementById('addName').value);
+    const username = sanitize(document.getElementById('addUser').value).toLowerCase();
+    const email    = sanitize(document.getElementById('addEmail').value);
+    const password = document.getElementById('addPass').value;
+    const securityQ= document.getElementById('addSQ').value;
+    const securityA= sanitize(document.getElementById('addSA').value).toLowerCase();
+    const role     = document.getElementById('addRole').value;
+
+    if (!fullName || !username || !email || !password || !securityQ || !securityA){
+      alertEl.innerHTML = `<div class="alert alert-error">⚠ All fields are required.</div>`; return;
+    }
+    if (!/^[a-z0-9_]{3,}$/.test(username)){
+      alertEl.innerHTML = `<div class="alert alert-error">⚠ Invalid username format.</div>`; return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
+      alertEl.innerHTML = `<div class="alert alert-error">⚠ Invalid email.</div>`; return;
+    }
+    const pv = validatePassword(password);
+    if (!pv.valid){
+      alertEl.innerHTML = `<div class="alert alert-error">⚠ Password needs ${pv.errors.join(', ')}.</div>`; return;
+    }
+
+    // Check BOTH paths for collisions
+    const userSnap  = await get(child(ref(db), `users/${username}`));
+    const adminSnap = await get(child(ref(db), `admins/${username}`));
+    if (userSnap.exists() || adminSnap.exists()){
+      alertEl.innerHTML = `<div class="alert alert-error">⚠ Username already exists.</div>`; return;
+    }
+
+    const passwordHash = await hashPassword(password);
+    const securityAhash = await hashPassword(securityA);
+
+    // 🔒 Admins go to /admins (hidden from regular users), users go to /users
+    const targetPath = role === 'admin' ? `admins/${username}` : `users/${username}`;
+    const record = {
+      username, fullName, email, role,
+      passwordHash, securityQ, securityAhash,
+      createdAt: new Date().toISOString()
+    };
+    // Admins don't have a wallet balance — they manage, not transact
+    if (role === 'user') record.balance = 1000;
+
+    await set(ref(db, targetPath), record);
+    await logActivity(session.username, `admin-create-${role}:${username}`, 'success');
+    alertEl.innerHTML = `<div class="alert alert-success">✓ ${role === 'admin' ? 'Admin' : 'User'} ${username} created.</div>`;
+    e.target.reset();
+  });
+
+  // ====== DELETE USER / ADMIN (with modal) ======
+  let pendingDelete = null;   // { username, path }
+  function openDelete(username, name, path){
+    pendingDelete = { username, path };
+    document.getElementById('delName').textContent = name + ' (@' + username + ')';
+    document.getElementById('delModal').classList.add('show');
+  }
+  document.getElementById('delClose').onclick =
+  document.getElementById('delCancel').onclick = () => {
+    document.getElementById('delModal').classList.remove('show');
+    pendingDelete = null;
+  };
+  document.getElementById('delConfirm').onclick = async () => {
+    if (!pendingDelete) return;
+    await remove(ref(db, `${pendingDelete.path}/${pendingDelete.username}`));
+    await logActivity(session.username, `admin-delete-${pendingDelete.path === 'admins' ? 'admin' : 'user'}:${pendingDelete.username}`, 'success');
+    document.getElementById('delModal').classList.remove('show');
+    pendingDelete = null;
+  };
+
+  // ====== back-button after logout ======
+  window.addEventListener('pageshow', (e) => {
+    if (e.persisted && !sessionStorage.getItem('cashg_session')){
+      location.replace('login.html');
+    }
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cash-G · Open an Account</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <nav class="nav">
+    <a href="index.html" class="brand">
+      <span class="mark"></span>
+      <span>Cash-G<small>Secure E-Wallet</small></span>
+    </a>
+    <div class="nav-links">
+      <a href="login.html">Sign In</a>
+    </div>
+  </nav>
+
+  <div class="auth-wrap">
+
+    <!-- Left visual side -->
+    <aside class="auth-side">
+      <div>
+        <div class="tagline">Step 1 · Sign Up</div>
+        <h1>Create your <em>Cash-G</em> account in seconds.</h1>
+      </div>
+      <div class="footer-note">
+        🔒 Your password is hashed with SHA-256 in your browser before it
+        ever reaches the database. We never see it. Neither does anyone else.
+      </div>
+    </aside>
+
+    <!-- Right form side -->
+    <main class="auth-form">
+      <div class="auth-form-inner">
+        <h2>Open an Account</h2>
+        <p class="subtitle">Fill out the form below to get started.</p>
+
+        <div id="alertBox"></div>
+
+        <form id="registerForm">
+          <div class="field">
+            <label>Full Name</label>
+            <input type="text" id="fullName" placeholder="Juan Dela Cruz" required>
+          </div>
+          <div class="field">
+            <label>Username</label>
+            <input type="text" id="username" placeholder="juandc" required>
+            <div class="help">Letters, numbers and underscores only · min. 3 characters</div>
+          </div>
+          <div class="field">
+            <label>Email</label>
+            <input type="email" id="email" placeholder="[email protected]" required>
+          </div>
+          <div class="field">
+            <label>Password</label>
+            <input type="password" id="password" placeholder="••••••••" required>
+            <div class="help">Min. 8 characters · uppercase · lowercase · number</div>
+          </div>
+          <div class="field">
+            <label>Security Question</label>
+            <select id="securityQ" required>
+              <option value="">— Choose a question —</option>
+              <option>What is your favorite color?</option>
+              <option>What is your pet's name?</option>
+              <option>What city were you born in?</option>
+              <option>What was your first school?</option>
+              <option>What is your mother's maiden name?</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Answer</label>
+            <input type="text" id="securityA" placeholder="Your answer" required>
+            <div class="help">Remember this exactly — it's case-insensitive but spaces matter.</div>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-block" id="submitBtn">
+            Create Account
+          </button>
+
+          <p class="switch-link">
+            Already a member? <a href="login.html">Sign in →</a>
+          </p>
+        </form>
+      </div>
+    </main>
+  </div>
+
+  <script type="module">
+    import {
+      db, ref, set, get, child,
+      hashPassword, validatePassword, sanitize, logActivity
+    } from "./firebase-config.js";
+
+    const form     = document.getElementById('registerForm');
+    const alertBox = document.getElementById('alertBox');
+    const submitBtn= document.getElementById('submitBtn');
+
+    function showAlert(type, msg){
+      alertBox.innerHTML = `<div class="alert alert-${type}">${msg}</div>`;
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      alertBox.innerHTML = '';
+
+      // 🔒 Sanitise + validate every input
+      const fullName  = sanitize(document.getElementById('fullName').value);
+      const username  = sanitize(document.getElementById('username').value).toLowerCase();
+      const email     = sanitize(document.getElementById('email').value);
+      const password  = document.getElementById('password').value;
+      const securityQ = document.getElementById('securityQ').value;
+      const securityA = sanitize(document.getElementById('securityA').value).toLowerCase();
+
+      // Empty-field check
+      if (!fullName || !username || !email || !password || !securityQ || !securityA){
+        return showAlert('error', '⚠ All fields are required.');
+      }
+      // Username format
+      if (!/^[a-z0-9_]{3,}$/.test(username)){
+        return showAlert('error', '⚠ Username must be ≥ 3 chars: letters, numbers, underscore.');
+      }
+      // Email format
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
+        return showAlert('error', '⚠ Please enter a valid email address.');
+      }
+      // Strong password
+      const pv = validatePassword(password);
+      if (!pv.valid){
+        return showAlert('error', '⚠ Password needs ' + pv.errors.join(', ') + '.');
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Creating account…';
+
+      try {
+        // Check username uniqueness in BOTH /users and /admins
+        const userSnap  = await get(child(ref(db), `users/${username}`));
+        const adminSnap = await get(child(ref(db), `admins/${username}`));
+        if (userSnap.exists() || adminSnap.exists()){
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Create Account';
+          return showAlert('error', '⚠ That username is already taken.');
+        }
+
+        // Hash sensitive fields
+        const passwordHash = await hashPassword(password);
+        const securityAhash = await hashPassword(securityA);
+
+        await set(ref(db, `users/${username}`), {
+          username, fullName, email,
+          passwordHash, securityQ, securityAhash,
+          role: 'user',
+          balance: 1000,           // welcome bonus
+          createdAt: new Date().toISOString()
+        });
+
+        await logActivity(username, 'register', 'success');
+
+        showAlert('success', '✓ Account created. Redirecting to sign-in…');
+        setTimeout(() => location.href = 'login.html', 1400);
+      } catch (err){
+        console.error(err);
+        showAlert('error', '⚠ Could not create account. Please try again.');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Create Account';
+      }
+    });
+  </script>
+</body>
+</html>
