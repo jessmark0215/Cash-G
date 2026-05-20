@@ -9,7 +9,7 @@
 </head>
 <body>
 
-<!-- 🔐 Session guard runs IMMEDIATELY (before render) -->
+<!--  Session guard runs IMMEDIATELY (before render) -->
 <script>
   const __s = JSON.parse(sessionStorage.getItem('cashg_session') || 'null');
   if (!__s){ location.replace('login.html'); }
@@ -29,11 +29,11 @@
     </a>
 
     <nav id="sidebarNav">
-      <button data-section="overview" class="active">◐ Overview</button>
-      <button data-section="send">→ Send Money</button>
-      <button data-section="topup">＋ Top-Up</button>
-      <button data-section="history">⌗ History</button>
-      <button data-section="profile">◇ My Profile</button>
+      <button data-section="overview" class="active">Overview</button>
+      <button data-section="send">Send Money</button>
+      <button data-section="topup">Top-Up</button>
+      <button data-section="history">History</button>
+      <button data-section="profile">My Profile</button>
     </nav>
 
     <div class="user-chip">
@@ -223,7 +223,7 @@
   // ====== INIT ======
   document.getElementById('chipName').textContent  = session.fullName;
   document.getElementById('chipUser').textContent  = session.username;
-  document.getElementById('greet').innerHTML       = `Welcome back, <span style="color:var(--blue)">${session.fullName.split(' ')[0]}</span> 👋`;
+  document.getElementById('greet').innerHTML       = `Welcome back, <span style="color:var(--blue)">${session.fullName.split(' ')[0]}</span> `;
   document.getElementById('acctTail').textContent  = session.username.slice(-4).toUpperCase().padStart(4,'0');
 
   async function loadUser(){

@@ -27,10 +27,6 @@
         <div class="tagline">Step 1 · Sign Up</div>
         <h1>Create your <em>Cash-G</em> account in seconds.</h1>
       </div>
-      <div class="footer-note">
-        🔒 Your password is hashed with SHA-256 in your browser before it
-        ever reaches the database. We never see it. Neither does anyone else.
-      </div>
     </aside>
 
     <!-- Right form side -->
@@ -82,7 +78,7 @@
           </button>
 
           <p class="switch-link">
-            Already a member? <a href="login.html">Sign in →</a>
+            Already a member? <a href="login.html">Sign in</a>
           </p>
         </form>
       </div>
@@ -107,7 +103,7 @@
       e.preventDefault();
       alertBox.innerHTML = '';
 
-      // 🔒 Sanitise + validate every input
+      // Sanitise + validate every input
       const fullName  = sanitize(document.getElementById('fullName').value);
       const username  = sanitize(document.getElementById('username').value).toLowerCase();
       const email     = sanitize(document.getElementById('email').value);
